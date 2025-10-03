@@ -48,7 +48,11 @@ void hsvToRgb(uint16_t h, uint8_t s, uint8_t v, uint8_t& r, uint8_t& g, uint8_t&
 
 void SliderBlinkControlView::colorControl(int value)
 {
-    uint16_t hue = static_cast<uint16_t>(value * 360 / 100); // map 0-100 to 0-360
+    if (!toggleButton1.getState()) {
+        // Do not update shape color when invisible
+        return;
+    }
+	uint16_t hue = static_cast<uint16_t>(value * 360 / 100); // map 0-100 to 0-360
     uint8_t r, g, b;
     hsvToRgb(hue, 255, 255, r, g, b);
     tjPainter.setColor(touchgfx::Color::getColorFromRGB(r, g, b));
@@ -57,12 +61,50 @@ void SliderBlinkControlView::colorControl(int value)
 
 void SliderBlinkControlView::blinkControl()
 {
-    blinking = !blinking;  // Start or stop blinking each time button pressed
-    blinkCounter = 0;      // Reset counter
-    if (!blinking) {
-        // Ensure shape is visible when stopping blink
+    if (!toggleButton1.getState()) {
+        blinkMode = 0;
+        blinking = false;
+        tj.setVisible(false);
+        tj.invalidate();
+        blink1.setVisible(false);
+        blink2.setVisible(false);
+        blink3.setVisible(false);
+        blink1.invalidate();
+        blink2.invalidate();
+        blink3.invalidate();
+        return;
+    }
+
+    blinkMode = (blinkMode + 1) % 4;
+
+    blink1.setVisible(false);
+    blink2.setVisible(false);
+    blink3.setVisible(false);
+
+    if (blinkMode == 0) {
+        blinking = false;
         tj.setVisible(true);
         tj.invalidate();
+        // All images hidden
+    } else {
+        blinking = true;
+        blinkCounter = 0;
+        tj.setVisible(true);
+        tj.invalidate();
+
+        // Show only the current blink speed image
+        if (blinkMode == 1) {
+            blink1.setVisible(true);
+            blink1.invalidate();
+        }
+        if (blinkMode == 2) {
+            blink2.setVisible(true);
+            blink2.invalidate();
+        }
+        if (blinkMode == 3) {
+            blink3.setVisible(true);
+            blink3.invalidate();
+        }
     }
 }
 
@@ -70,13 +112,18 @@ void SliderBlinkControlView::handleTickEvent()
 {
     SliderBlinkControlViewBase::handleTickEvent();
 
-    if (blinking) {
+    if (blinking && toggleButton1.getState() && blinkMode > 0) {
         blinkCounter++;
-        if (blinkCounter % 15 == 0) { // Adjust 15 to set blink speed (ticks)
+        int currentInterval = blinkBaseInterval / blinkMode; // blinkMode: 1,2,3
+
+        if (currentInterval < 1) currentInterval = 1; // Avoid divide by zero
+
+        if (blinkCounter % currentInterval == 0) {
             bool currentVis = tj.isVisible();
-            tj.setVisible(!currentVis); // Toggle visibility
+            tj.setVisible(!currentVis);
             tj.invalidate();
         }
     }
 }
+
 
